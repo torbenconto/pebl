@@ -10,6 +10,7 @@ import (
 type Torrent struct {
 	TrackerURL string
 	Length     int
+	InfoHash   string
 }
 
 func ReadMetaInfoFile(path string) (Torrent, error) {
@@ -18,7 +19,7 @@ func ReadMetaInfoFile(path string) (Torrent, error) {
 		return Torrent{}, err
 	}
 
-	result, err := bencode.Decode(data)
+	result, _, hash, err := bencode.DecodeWithInfoHash(data)
 	if err != nil {
 		return Torrent{}, err
 	}
@@ -36,6 +37,7 @@ func ReadMetaInfoFile(path string) (Torrent, error) {
 	final := Torrent{
 		TrackerURL: dict["announce"].(string),
 		Length:     info["length"].(int),
+		InfoHash:   fmt.Sprintf("%x", hash),
 	}
 
 	return final, nil
