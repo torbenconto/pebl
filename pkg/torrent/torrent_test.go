@@ -6,5 +6,12 @@ import (
 )
 
 func TestReadMetaInfoFile(t *testing.T) {
-	fmt.Println(ReadMetaInfoFile("sample.torrent"))
+	torrent, _ := ReadMetaInfoFile("sample.torrent")
+
+	resp, err := DiscoverPeers(torrent, "-GT0001-123456789012")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(resp)
 }
