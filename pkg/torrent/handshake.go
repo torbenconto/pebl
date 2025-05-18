@@ -41,30 +41,43 @@ func HandshakeFromBytes(b []byte) *Handshake {
 	return handshake
 }
 
-func PerformHandshake(torrent *Torrent, peerIP string, peerID []byte) (*Handshake, error) {
-	conn, err := net.Dial("tcp", peerIP)
+func PerformHandshakeAndConnect(torrent *Torrent, peerAddr string, ourPeerID []byte) (*PeerConn, error) {
+	conn, err := net.Dial("tcp", peerAddr)
 	if err != nil {
-		return nil, fmt.Errorf("error connecting to peer %s: %v", peerIP, err)
+		return nil, fmt.Errorf("error connecting to peer %s: %v", peerAddr, err)
 	}
-	defer conn.Close()
 
 	handshake := Handshake{
-		PeerID:   peerID,
+		PeerID:   ourPeerID,
 		InfoHash: torrent.InfoHash,
 	}
-
 	_, err = conn.Write(handshake.ToBytes())
 	if err != nil {
-		return nil, fmt.Errorf("error writing handshake to conn: %v", err)
+		conn.Close()
+		return nil, fmt.Errorf("error writing handshake: %w", err)
 	}
 
 	response := make([]byte, 68)
 	_, err = conn.Read(response)
 	if err != nil {
-		return nil, fmt.Errorf("error reading handshake response: %v", err)
+		conn.Close()
+		return nil, fmt.Errorf("error reading handshake response: %w", err)
 	}
 
-	recvHandshake := HandshakeFromBytes(response)
+	recv := HandshakeFromBytes(response)
+	if recv == nil {
+		conn.Close()
+		return nil, fmt.Errorf("invalid handshake from peer")
+	}
 
-	return recvHandshake, nil
+	var peerID [20]byte
+	copy(peerID[:], recv.PeerID)
+
+	return &PeerConn{
+		Conn:     conn,
+		PeerID:   peerID,
+		Bitfield: nil,
+		Choked:   true,
+		UnchokeC: make(chan struct{}, 1),
+	}, nil
 }
